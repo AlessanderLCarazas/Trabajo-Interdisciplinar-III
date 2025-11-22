@@ -1,0 +1,222 @@
+===============================================================================
+GUÍA EXPLICATIVA DEL DIAGRAMA DE ARQUITECTURA: MEMSUM (LIBROS / BOOKSUM)
+===============================================================================
+Ubicación del diagrama (DOT): models/memsum_architecture.dot
+Resumen del modelo:          models/memsum_architecture_summary.txt
+Fecha: 20-10-2025
+
+Objetivo: Describir cada bloque del modelo MemSum, cómo se conectan, qué formas
+(tamaños) de tensores manejan y por qué existen, para facilitar la lectura del
+diagrama y su comprensión.
+
+ÍNDICE
+- 0) Flujo general (de extremo a extremo)
+- 1) SentenceEncoder (codificador de oraciones)
+- 2) DocumentEncoder (codificador del documento)
+- 3) MemoryModule (memoria episódica)
+- 4) ExtractionPolicy (política de extracción)
+- 5) MemSum (orquestador)
+- 6) Máscaras, posiciones y estabilidad
+- 7) Interfaz con entrenamiento RL (trainer)
+- 8) Consejos de lectura del diagrama
+- 9) Glosario rápido
+
+-------------------------------------------------------------------------------
+0) FLUJO GENERAL (DE EXTREMO A EXTREMO)
+-------------------------------------------------------------------------------
+Entradas principales:
+- sentences: Tensor [B, D, S] con índices de palabras (B=batch, D=oraciones,
+             S=tokens por oración).
+- mask:      Tensor [B, D] (1=oración válida, 0=padding).
+
+Recorrido de datos:
+1. SentenceEncoder convierte cada oración en un embedding denso → [B, D, E_s].
+2. DocumentEncoder contextualiza cada oración con atención global → [B, D, E_d].
+3. MemoryModule agrega información sobre “lo ya extraído” → [B, D, M].
+4. ExtractionPolicy fusiona (doc + memoria + posición) y produce:
+   - action_logits [B, D]  → puntuaciones por oración (para elegir).
+   - values        [B, D]  → estimación de valor (estabiliza RL).
+5. MemSum usa esos logits para seleccionar oraciones y construir el resumen.
+
+-------------------------------------------------------------------------------
+1) SENTENCEENCODER (CODIFICADOR DE ORACIONES)
+-------------------------------------------------------------------------------
+Entrada:  sentences [B, D, S] (índices), lengths [B, D] (longitud real por oración)
+Salida:   sentence_embeddings [B, D, E_s]
+
+Capas internas:
+- Embedding de palabras: nn.Embedding(vocab_size, word_embed_dim)
+- BiLSTM (bidireccional): nn.LSTM(word_embed_dim, E_s/2, bidirectional=True)
+- Concatenación de estados finales (dirección forward y backward)
+- LayerNorm + Dropout para estabilizar y regularizar
+
+Qué resuelve:
+- Convierte secuencias de tokens por oración a vectores densos (semántica
+  de oración) robustos para documentos largos.
+
+Parámetros relevantes:
+- word_embed_dim, sent_embed_dim (E_s), num_layers, dropout
+
+Formas típicas:
+- Input:  [B, D, S]
+- Output: [B, D, E_s]
+
+-------------------------------------------------------------------------------
+2) DOCUMENTENCODER (CODIFICADOR DEL DOCUMENTO)
+-------------------------------------------------------------------------------
+Entrada:  sentence_embeddings [B, D, E_s], mask [B, D]
+Salida:   doc_embeddings [B, D, E_d]
+
+Capas internas:
+- Proyección lineal: Linear(E_s → E_d)
+- PositionalEncoding sinusoidal: añade información del índice de oración
+- TransformerEncoder (L capas):
+  - Self-Attention multi-cabeza sobre oraciones
+  - Feed-Forward con activación GELU
+  - norm_first=True para estabilidad
+- LayerNorm final + Dropout
+
+Qué resuelve:
+- Contextualiza cada oración con el resto del documento (dependencias largas).
+- Imprescindible en libros: capta relaciones temáticas globales.
+
+Parámetros relevantes:
+- doc_embed_dim (E_d), num_layers, num_heads, dropout
+
+Formas típicas:
+- Input:  [B, D, E_s] (tras proyección a E_d)
+- Output: [B, D, E_d]
+
+Notas sobre máscara:
+- src_key_padding_mask (mask==0) evita que el Transformer atienda padding.
+
+-------------------------------------------------------------------------------
+3) MEMORYMODULE (MEMORIA EPISÓDICA)
+-------------------------------------------------------------------------------
+Entrada:  doc_embeddings [B, D, E_d], extraction_history [B, D] (0/1),
+          memory_state (estado GRU, opcional)
+Salida:   memory_embeddings [B, D, M], new_memory_state (estado GRU)
+
+Capas y pasos internos:
+- Filtrado por historia: multiplica doc_embeddings por extraction_history
+  para destacar oraciones ya extraídas.
+- GRU bidireccional: nn.GRU(E_d → M_bi)
+- Proyección: Linear(M_bi → M)
+- Atención multi-cabeza sobre la propia memoria (self-attention):
+  MultiheadAttention(M, num_heads)
+- Gate (compuerta) sigmoide para mezclar salida GRU y memoria atendida:
+  memory = gate * gru_out + (1 - gate) * attended
+- LayerNorm + Dropout
+
+Qué resuelve:
+- “Recuerda” lo ya seleccionado, reduce redundancia, guía siguientes elecciones.
+- La atención permite reasignar foco a fragmentos previamente relevantes.
+
+Parámetros relevantes:
+- memory_dim (M), num_heads atención, dropout
+
+Formas típicas:
+- Input:  [B, D, E_d], [B, D]
+- Output: [B, D, M]
+
+-------------------------------------------------------------------------------
+4) EXTRACTIONPOLICY (POLÍTICA DE EXTRACCIÓN)
+-------------------------------------------------------------------------------
+Entrada:  doc_embeddings [B, D, E_d], memory_embeddings [B, D, M],
+          positions [B, D] (índices 0..D-1), mask [B, D]
+Salida:   action_logits [B, D], values [B, D]
+
+Capas internas:
+- Embedding de posición: nn.Embedding(max_pos, P) → P=64 por defecto
+- Fusión de características: concat(doc, memory, pos) → Linear → LayerNorm → GELU → Dropout
+- policy_head: MLP que produce 1 logit por oración
+- value_head: MLP que produce 1 valor por oración (para value loss en RL)
+- Enmascarados:
+  - action_logits.masked_fill(mask==0, -inf) evita acciones en padding
+  - values.masked_fill(mask==0, 0) evita contaminar pérdida de valor
+
+Qué resuelve:
+- Decide qué oración seleccionar en cada paso basándose en contexto y memoria.
+- value_head estabiliza aprendizaje con RL (estimación de valor del estado).
+
+Parámetros relevantes:
+- hidden_dim, dropout, posición (P=64), dimensiones E_d y M
+
+Formas típicas:
+- Input:  [B, D, E_d], [B, D, M]
+- Output: [B, D] logits, [B, D] valores
+
+-------------------------------------------------------------------------------
+5) MEMSUM (ORQUESTADOR)
+-------------------------------------------------------------------------------
+Rol: Une todos los módulos anteriores y expone dos interfaces:
+- forward(sentences, mask, extraction_history, memory_state) → dict con
+  action_logits, values, memory_embeddings, new_memory_state, doc_embeddings
+- extract_summary(sentences, mask, max_summary_length, temperature) → índices
+  de oraciones seleccionadas [B, K]
+
+Secuencia en forward:
+1) SentenceEncoder → sentence_embeddings
+2) DocumentEncoder → doc_embeddings
+3) MemoryModule(extraction_history) → memory_embeddings, new_state
+4) ExtractionPolicy → action_logits, values
+
+Secuencia en extract_summary (inferencia):
+- Inicializa extraction_history=[0] y memory_state=None
+- Itera K pasos: usa softmax( logits / T ) con máscara y muestreo multinomial
+  (evita repetir oraciones ya elegidas) hasta completar el resumen o quedarse
+  sin candidatos válidos.
+
+-------------------------------------------------------------------------------
+6) MÁSCARAS, POSICIONES Y ESTABILIDAD
+-------------------------------------------------------------------------------
+- Máscara de documento: mask [B, D] evita que Transformer/política usen padding.
+- Historia de extracción: extraction_history [B, D] evita repetir oraciones.
+- Posición: embedding posicional en DocumentEncoder y embedding de posición en
+  ExtractionPolicy ayudan a codificar la estructura (inicio, medio, fin).
+- Estabilidad: LayerNorm, GELU, Dropout, inicialización Xavier/Normal.
+
+-------------------------------------------------------------------------------
+7) INTERFAZ CON ENTRENAMIENTO RL (TRAINER)
+-------------------------------------------------------------------------------
+- action_logits → política (policy gradient) con REINFORCE.
+- values       → pérdida de valor (MSE) contra recompensas → estabilidad.
+- Recompensas: combinación de ROUGE-L contra resumen humano (70%) y solapamiento
+  con un oráculo extractivo (30%).
+- Extracción en train_step: el modelo selecciona oraciones, se calcula ROUGE,
+  se computan pérdidas (policy, value, entropía) y se actualizan parámetros.
+
+-------------------------------------------------------------------------------
+8) CONSEJOS DE LECTURA DEL DIAGRAMA
+-------------------------------------------------------------------------------
+- Cada nodo representa un módulo/capa; las aristas muestran flujo tensorial.
+- Busca sub-bloques: SentenceEncoder, DocumentEncoder, MemoryModule y
+  ExtractionPolicy suelen estar agrupados.
+- Sigue formas (shapes) de tensores: [B, D, ...] se mantiene casi todo el
+  pipeline para operar por oración en el documento.
+- Atención a enmascarados: donde veas mask, se están anulando posiciones inválidas.
+
+-------------------------------------------------------------------------------
+9) GLOSARIO RÁPIDO
+-------------------------------------------------------------------------------
+- B: batch_size
+- D: número de oraciones por documento
+- S: tokens por oración (longitud máxima por padding)
+- E_s: dimensión del embedding de oración (sent_embed_dim)
+- E_d: dimensión del embedding de documento (doc_embed_dim)
+- M: dimensión de la memoria (memory_dim)
+- logits: puntuaciones sin normalizar para cada acción (oración)
+- values: estimación del valor esperado del estado/acción
+- RL: aprendizaje por refuerzo
+- ROUGE: métrica de solapamiento entre resumen generado y de referencia
+
+-------------------------------------------------------------------------------
+NOTAS FINALES
+-------------------------------------------------------------------------------
+- El diseño está equilibrado para documentos largos (hasta ~500 oraciones) en
+  GPU con 4GB de VRAM (RTX 3050), usando técnicas como mixed precision, clipping
+  y acumulación de gradientes.
+- Si un libro supera esos límites, se recomienda dividir por capítulos o
+  secciones y fusionar resúmenes parciales.
+
+Fin del documento.

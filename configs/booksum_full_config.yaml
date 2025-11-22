@@ -1,0 +1,59 @@
+# MemSum Configuration for Full BookSum Training
+# Optimized for longer training runs
+
+model:
+  hidden_dim: 512  # Increased for better performance
+  num_layers: 3
+  dropout: 0.15
+  word_embed_dim: 300  # Increased embedding size
+  pos_embed_dim: 64
+  sent_embed_dim: 512
+  doc_embed_dim: 512
+  memory_dim: 512
+  max_doc_len: 800  # Support longer documents
+  max_sent_len: 150
+
+training:
+  learning_rate: 0.00005  # Lower learning rate for stability
+  batch_size: 2  # Smaller batch for larger model
+  num_epochs: 25
+  warmup_steps: 1000
+  gradient_clip_norm: 3.0
+  accumulation_steps: 16  # Larger effective batch size
+  eval_every: 1000
+  save_every: 5
+  early_stopping_patience: 8
+
+rl:
+  gamma: 0.98  # Higher discount factor
+  entropy_coef: 0.005  # Reduced for more focused exploration
+  value_coef: 0.8
+  max_episodes: 100000
+  memory_size: 50000
+  exploration_noise: 0.05
+
+data:
+  dataset_name: 'booksum'
+  max_summary_length: 12  # Longer summaries
+  min_summary_length: 3
+  train_split: 'train'
+  val_split: 'validation'
+  test_split: 'test'
+  num_workers: 1  # Conservative for stability
+  pin_memory: true
+
+paths:
+  data_dir: './data'
+  model_dir: './models'
+  log_dir: './logs'
+  checkpoint_dir: './checkpoints'
+
+device:
+  use_gpu: true
+  gpu_id: 0
+  mixed_precision: true
+
+logging:
+  use_wandb: true  # Enable for full training
+  wandb_project: 'memsum-booksum-full'
+  log_level: 'INFO'

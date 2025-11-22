@@ -1,0 +1,96 @@
+# CONFIGURACIÓN PRINCIPAL - MemSum para BookSum Dataset
+# ======================================================
+# Este archivo controla todos los parámetros del modelo y entrenamiento.
+#
+# SECCIONES IMPORTANTES:
+# - model: arquitectura (dimensiones, capas, dropout)
+# - training: hiperparámetros (lr, batch_size, epochs, early stopping)
+# - rl: parámetros de reinforcement learning (recompensas, exploración)
+# - data: configuración del dataset (límites, splits, longitudes)
+# - device: configuración de GPU/CPU y mixed precision
+#
+# CÓMO MODIFICAR:
+# - Para entrenar más tiempo: cambiar training.num_epochs
+# - Para usar más datos: aumentar data.max_train_docs
+# - Para GPU más pequeña: reducir training.batch_size
+# - Para textos más largos: aumentar model.max_doc_len
+
+model:
+  # Model architecture parameters
+  hidden_dim: 192
+  num_layers: 2
+  dropout: 0.1
+  word_embed_dim: 200
+  pos_embed_dim: 50
+  sent_embed_dim: 192
+  doc_embed_dim: 192
+  memory_dim: 192
+  max_doc_len: 300
+  max_sent_len: 60
+
+training:
+  # Training hyperparameters
+  learning_rate: 0.0001
+  batch_size: 2  # Aumentado para reducir overhead por iteración
+  num_epochs: 15  # Reducido drásticamente para 4-5 horas (15 * 18min = ~4.5h)
+  warmup_steps: 500
+  gradient_clip_norm: 5.0
+  accumulation_steps: 8  # Reducido para mantener batch efectivo de 16
+  eval_every: 0  # 0 = desactivar validación intermedia para evitar overhead
+  save_every: 15  # Solo guardar al final
+  # Aumentado para permitir completar 40 épocas sin parar pronto
+  early_stopping_patience: 40
+  # Warmup supervisado (imitation learning) para estabilizar entrenamiento inicial
+  supervised_warmup_epochs: 3
+  supervised_lambda: 0.7
+
+rl:
+  # Reinforcement learning parameters
+  gamma: 0.95
+  entropy_coef: 0.01
+  value_coef: 0.5
+  max_episodes: 50000
+  memory_size: 25000
+  exploration_noise: 0.1
+
+data:
+  # Dataset parameters
+  max_train_docs: null
+  max_val_docs: null
+  max_test_docs: null
+  max_summary_length: 8  # Reduced for BookSum
+  min_summary_length: 2
+  train_split: 'train'
+  val_split: 'validation'
+  test_split: 'test'
+  num_workers: 2  # Acelera el prefetch de datos en CPU
+  pin_memory: true
+  # Quick-run limits desactivados (usar dataset completo)
+
+evaluation:
+  # Evaluación ligera para acelerar el entrenamiento
+  use_bertscore: false  # Evita cargar roberta-large en cada validación
+  max_val_samples: 8   # Mínimo para evaluación rápida (antes 64)
+
+paths:
+  # File paths
+  data_dir: './data'
+  model_dir: './models'
+  log_dir: './logs'
+  checkpoint_dir: './checkpoints'
+  # Ruta opcional a GloVe 200d (debe coincidir con model.word_embed_dim)
+  glove_path: './data/glove.6B.200d.txt'
+
+device:
+  # GPU settings optimized for RTX 3050
+  use_gpu: true
+  gpu_id: 0
+  mixed_precision: true
+  cudnn_benchmark: true
+  cudnn_deterministic: false
+
+logging:
+  # Logging configuration
+  use_wandb: false
+  wandb_project: 'memsum-booksum'
+  log_level: 'INFO'
