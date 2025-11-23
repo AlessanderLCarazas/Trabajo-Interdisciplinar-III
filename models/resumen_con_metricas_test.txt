@@ -1,0 +1,18 @@
+================================================================================
+RESUMEN GENERADO
+================================================================================
+
+-le respondió el hombre. La niña sacó una pequeña bolsa repleta de monedas y las dejó sobre el mostrador. -Verá, es que ayer por la tarde, mi hija me regaló esta pulsera para mi cumpleaños y me dijo que la había comprado aquí. -Pero... pero creo que debe haber un error porque... esta pulsera es de oro, ¿verdad? -Lo que sí puedo decirle es que su hija pagó por esta pulsera el precio más alto que puede pagar una persona. -¿Qué quiere decir?
+
+================================================================================
+MÉTRICAS DE EVALUACIÓN (ROUGE)
+================================================================================
+
+ROUGE-1 - F1: 0.2776 (P: 1.0000, R: 0.1612)
+ROUGE-2 - F1: 0.2658 (P: 0.9655, R: 0.1541)
+ROUGE-L - F1: 0.2776 (P: 1.0000, R: 0.1612)
+
+Coherencia: 0.4670
+Cohesión: 0.7355
+
+Ratio de compresión: 15.09%

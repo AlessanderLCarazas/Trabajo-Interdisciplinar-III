@@ -1,0 +1,18 @@
+================================================================================
+RESUMEN GENERADO
+================================================================================
+
+La pulsera Un joyero venía observando ya durante un tiempo, cómo una niña se detenía delante del escaparate de su establecimiento y se quedaba mirando una bonita pulsera de oro. -¿Me puede usted enseñar esa pulsera que hay en el escaparate, la dorada? En ese momento el joyero pudo ver cómo unas lágrimas de emoción brotaban de sus ojos. -Sí, seguro que le encantará, es preciosa -le contestó el joyero. -¿Cuánto tienes? -A ver... creo que sí, creo que con esto será suficiente -le respondió el joyero mientras recogía todo lo que la niña había dejado en el mostrador- ¿Quieres que te la envuelva para regalo? -exclamó la niña ilusionada. -Hola -saludó nada más entrar. -Pero... pero creo que debe haber un error porque... esta pulsera es de oro, ¿verdad? -Verá -le contestó seriamente el joyero-, en este establecimiento tenemos por costumbre mantener la confidencialidad de nuestros clientes, así que, sintiéndolo mucho, no puedo darle esa información. -Lo que sí puedo decirle es que su hija pagó por esta pulsera el precio más alto que puede pagar una persona. * * * Cuento extraído del libro “Cuentos para entender el mundo 2”
+
+================================================================================
+MÉTRICAS DE EVALUACIÓN (ROUGE)
+================================================================================
+
+ROUGE-1 - F1: 0.5498 (P: 1.0000, R: 0.3791)
+ROUGE-2 - F1: 0.5220 (P: 0.9515, R: 0.3596)
+ROUGE-L - F1: 0.5498 (P: 1.0000, R: 0.3791)
+
+Coherencia: 0.4507
+Cohesión: 0.6883
+
+Ratio de compresión: 38.60%

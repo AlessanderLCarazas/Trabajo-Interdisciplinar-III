@@ -30,6 +30,10 @@ import uvicorn
 # Add src to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 from evaluate import MemSumInference
+from rouge_score import rouge_scorer
+from sentence_transformers import SentenceTransformer
+import numpy as np
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -99,10 +103,90 @@ def extract_text_from_pdf(pdf_path: str, extractor: str = "pdfminer") -> str:
         logger.error(f"Error extracting text from PDF: {e}")
         return ""
 
+# Global Sentence-BERT model for coherence/cohesion metrics
+sbert_model = None
+
+def load_sbert_model():
+    """Load Sentence-BERT model for coherence metrics"""
+    global sbert_model
+    if sbert_model is None:
+        sbert_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+    return sbert_model
+
+def split_into_sentences(text: str) -> list:
+    """Split text into sentences"""
+    # Simple sentence splitter
+    sentences = re.split(r'[.!?]+', text)
+    sentences = [s.strip() for s in sentences if s.strip()]
+    return sentences
+
+def calculate_coherence(summary: str) -> float:
+    """
+    Calcula la coherencia del resumen midiendo la similitud semántica
+    entre oraciones consecutivas.
+    
+    Coherencia alta = oraciones relacionadas entre sí
+    Rango: 0.0 (no coherente) a 1.0 (muy coherente)
+    """
+    sentences = split_into_sentences(summary)
+    if len(sentences) < 2:
+        return 1.0  # Un solo sentence es perfectamente coherente
+    
+    try:
+        model = load_sbert_model()
+        embeddings = model.encode(sentences, convert_to_numpy=True, normalize_embeddings=True)
+        
+        # Calcular similitud coseno entre oraciones consecutivas
+        similarities = []
+        for i in range(len(embeddings) - 1):
+            sim = np.dot(embeddings[i], embeddings[i+1])
+            similarities.append(sim)
+        
+        coherence_score = float(np.mean(similarities))
+        return max(0.0, min(1.0, coherence_score))
+    
+    except Exception as e:
+        logger.warning(f"Error calculating coherence: {e}")
+        return 0.0
+
+def calculate_cohesion(summary: str) -> float:
+    """
+    Calcula la cohesión del resumen midiendo qué tan relacionadas están
+    todas las oraciones con el tema central (promedio de embeddings).
+    
+    Cohesión alta = todas las oraciones tratan del mismo tema
+    Rango: 0.0 (no cohesivo) a 1.0 (muy cohesivo)
+    """
+    sentences = split_into_sentences(summary)
+    if len(sentences) < 2:
+        return 1.0  # Un solo sentence es perfectamente cohesivo
+    
+    try:
+        model = load_sbert_model()
+        embeddings = model.encode(sentences, convert_to_numpy=True, normalize_embeddings=True)
+        
+        # Calcular el centroide (tema central)
+        centroid = np.mean(embeddings, axis=0)
+        centroid = centroid / np.linalg.norm(centroid)  # Normalizar
+        
+        # Calcular similitud de cada oración con el centroide
+        similarities = []
+        for emb in embeddings:
+            sim = np.dot(emb, centroid)
+            similarities.append(sim)
+        
+        cohesion_score = float(np.mean(similarities))
+        return max(0.0, min(1.0, cohesion_score))
+    
+    except Exception as e:
+        logger.warning(f"Error calculating cohesion: {e}")
+        return 0.0
+
 @app.on_event("startup")
 async def startup_event():
     """Load model when server starts"""
     load_model()
+    load_sbert_model()  # Pre-cargar modelo SBERT
 
 @app.get("/", response_class=HTMLResponse)
 async def get_web_interface():
@@ -417,7 +501,8 @@ async def get_web_interface():
                     
                     <div class="control-group">
                         <label for="maxLength">Oraciones en resumen:</label>
-                        <input type="number" id="maxLength" value="8" min="3" max="15">
+                        <input type="number" id="maxLength" value="12" min="3" max="20">
+                        <small style="color: #888; font-size: 0.85em;">Recomendado: 12 para mejor coherencia</small>
                     </div>
                 </div>
                 
@@ -561,7 +646,7 @@ async def get_web_interface():
                     updateProgress(100);
                     
                     setTimeout(() => {
-                        showResults(result.summary);
+                        showResults(result);
                         hideProgress();
                     }, 500);
                     
@@ -587,9 +672,100 @@ async def get_web_interface():
                 progressBar.style.width = percent + '%';
             }
             
-            function showResults(summary) {
-                summaryResult = summary;
-                summaryText.textContent = summary;
+            function showResults(result) {
+                summaryResult = result.summary;
+                
+                // Display summary
+                summaryText.textContent = result.summary;
+                
+                // Display metrics if available
+                if (result.rouge_metrics) {
+                    const metrics = result.rouge_metrics;
+                    const metricsHTML = `
+                        <div style="margin-top: 20px; padding: 20px; background: #2a2a2a; border-radius: 10px; border: 1px solid #444;">
+                            <h3 style="color: #00bcd4; margin-bottom: 15px;">📊 Métricas de Evaluación (ROUGE)</h3>
+                            
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
+                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">ROUGE-1</div>
+                                    <div style="font-size: 1.8em; color: #00bcd4; font-weight: bold;">${(metrics.rouge1.f1 * 100).toFixed(2)}%</div>
+                                    <div style="font-size: 0.85em; color: #aaa; margin-top: 5px;">
+                                        P: ${(metrics.rouge1.precision * 100).toFixed(1)}% | 
+                                        R: ${(metrics.rouge1.recall * 100).toFixed(1)}%
+                                    </div>
+                                </div>
+                                
+                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
+                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">ROUGE-2</div>
+                                    <div style="font-size: 1.8em; color: #4caf50; font-weight: bold;">${(metrics.rouge2.f1 * 100).toFixed(2)}%</div>
+                                    <div style="font-size: 0.85em; color: #aaa; margin-top: 5px;">
+                                        P: ${(metrics.rouge2.precision * 100).toFixed(1)}% | 
+                                        R: ${(metrics.rouge2.recall * 100).toFixed(1)}%
+                                    </div>
+                                </div>
+                                
+                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
+                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">ROUGE-L</div>
+                                    <div style="font-size: 1.8em; color: #ff9800; font-weight: bold;">${(metrics.rougeL.f1 * 100).toFixed(2)}%</div>
+                                    <div style="font-size: 0.85em; color: #aaa; margin-top: 5px;">
+                                        P: ${(metrics.rougeL.precision * 100).toFixed(1)}% | 
+                                        R: ${(metrics.rougeL.recall * 100).toFixed(1)}%
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; padding: 15px; background: #1a1a1a; border-radius: 8px;">
+                                <div>
+                                    <span style="color: #888;">Texto original:</span>
+                                    <span style="color: #fff; margin-left: 10px; font-weight: bold;">${result.text_length.toLocaleString()} caracteres</span>
+                                </div>
+                                <div>
+                                    <span style="color: #888;">Resumen:</span>
+                                    <span style="color: #fff; margin-left: 10px; font-weight: bold;">${result.summary_length.toLocaleString()} caracteres</span>
+                                </div>
+                                <div>
+                                    <span style="color: #888;">Compresión:</span>
+                                    <span style="color: #00bcd4; margin-left: 10px; font-weight: bold;">${result.compression_ratio}%</span>
+                                </div>
+                            </div>
+                            
+                            ${result.coherence !== undefined && result.cohesion !== undefined ? `
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
+                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">🔗 Coherencia</div>
+                                    <div style="font-size: 1.8em; color: #9c27b0; font-weight: bold;">${(result.coherence * 100).toFixed(2)}%</div>
+                                    <div style="font-size: 0.75em; color: #aaa; margin-top: 5px;">
+                                        Similitud entre oraciones consecutivas
+                                    </div>
+                                </div>
+                                
+                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
+                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">🎯 Cohesión</div>
+                                    <div style="font-size: 1.8em; color: #e91e63; font-weight: bold;">${(result.cohesion * 100).toFixed(2)}%</div>
+                                    <div style="font-size: 0.75em; color: #aaa; margin-top: 5px;">
+                                        Unidad temática del resumen
+                                    </div>
+                                </div>
+                            </div>
+                            ` : ''}
+                            
+                            <div style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 5px; font-size: 0.85em; color: #aaa;">
+                                <strong>📖 Interpretación de Métricas:</strong>
+                                <ul style="margin: 5px 0; padding-left: 20px;">
+                                    <li><strong>ROUGE-1:</strong> Similitud de palabras individuales</li>
+                                    <li><strong>ROUGE-2:</strong> Similitud de pares de palabras (bigrams)</li>
+                                    <li><strong>ROUGE-L:</strong> Secuencia común más larga</li>
+                                    ${result.coherence !== undefined ? '<li><strong>Coherencia:</strong> Conexión lógica entre oraciones (>70% = buena)</li>' : ''}
+                                    ${result.cohesion !== undefined ? '<li><strong>Cohesión:</strong> Unidad temática del resumen (>75% = buena)</li>' : ''}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Insert metrics after summary text
+                    summaryText.insertAdjacentHTML('afterend', metricsHTML);
+                }
+                
                 emptyState.style.display = 'none';
                 results.style.display = 'block';
             }
@@ -642,8 +818,8 @@ async def health_check():
 async def upload_and_summarize(
     file: UploadFile = File(...),
     language: str = Form("spanish"),
-    max_summary_length: int = Form(8),
-    strategy: str = Form("greedy")
+    max_summary_length: int = Form(12),  # Aumentado de 8 a 12 para mejor coherencia
+    strategy: str = Form("sample")  # Cambiado de greedy a sample para mejor flujo
 ):
     """Upload PDF and generate summary"""
     
@@ -671,15 +847,45 @@ async def upload_and_summarize(
             if not text.strip():
                 raise HTTPException(status_code=400, detail="No se pudo extraer texto del PDF")
             
-            # Generate summary
+            # Generate summary with optimized parameters for better coherence/cohesion
             summary = model_instance.summarize_text(
                 text,
                 max_summary_length=max_summary_length,
                 lang=language,
                 strategy=strategy,
-                redundancy_penalty=0.3,
+                redundancy_penalty=0.1,  # Reducido de 0.3 a 0.1 para mejor coherencia
                 dedup=True
             )
+            
+            # Calculate ROUGE metrics (compare summary with original text)
+            scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
+            rouge_scores = scorer.score(text, summary)
+            
+            # Extract F1 scores
+            metrics = {
+                "rouge1": {
+                    "precision": round(rouge_scores['rouge1'].precision, 4),
+                    "recall": round(rouge_scores['rouge1'].recall, 4),
+                    "f1": round(rouge_scores['rouge1'].fmeasure, 4)
+                },
+                "rouge2": {
+                    "precision": round(rouge_scores['rouge2'].precision, 4),
+                    "recall": round(rouge_scores['rouge2'].recall, 4),
+                    "f1": round(rouge_scores['rouge2'].fmeasure, 4)
+                },
+                "rougeL": {
+                    "precision": round(rouge_scores['rougeL'].precision, 4),
+                    "recall": round(rouge_scores['rougeL'].recall, 4),
+                    "f1": round(rouge_scores['rougeL'].fmeasure, 4)
+                }
+            }
+            
+            # Calculate coherence and cohesion
+            coherence = round(calculate_coherence(summary), 4)
+            cohesion = round(calculate_cohesion(summary), 4)
+            
+            # Calculate compression ratio
+            compression_ratio = round(len(summary) / len(text) * 100, 2) if len(text) > 0 else 0
             
             return {
                 "filename": file.filename,
@@ -687,6 +893,11 @@ async def upload_and_summarize(
                 "language": language,
                 "max_length": max_summary_length,
                 "text_length": len(text),
+                "summary_length": len(summary),
+                "compression_ratio": compression_ratio,
+                "rouge_metrics": metrics,
+                "coherence": coherence,
+                "cohesion": cohesion,
                 "status": "success"
             }
             
