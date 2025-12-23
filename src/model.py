@@ -235,11 +235,9 @@ class MemSum(nn.Module):
         
         self.apply(self._init_weights)
 
-        # Inicialización opcional con embeddings preentrenados (GloVe)
         try:
             self._maybe_init_pretrained_embeddings(vocab_size)
         except Exception:
-            # No bloquear si falla; seguir con init por defecto
             pass
         
     def _init_weights(self, module):

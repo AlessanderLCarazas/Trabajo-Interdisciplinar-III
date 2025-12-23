@@ -1,37 +1,0 @@
-nohup: no se tendrá en cuenta la entrada
-/home/lagusa/Documentos/TI3/.venv/lib/python3.12/site-packages/pydantic/_internal/_generate_schema.py:2249: UnsupportedFieldAttributeWarning: The 'repr' attribute with value False was provided to the `Field()` function, which has no effect in the context it was used. 'repr' is field-specific metadata, and can only be attached to a model field using `Annotated` metadata or by assignment. This may have happened because an `Annotated` type alias using the `type` statement was used, or if the `Field()` function was attached to a single member of a union type.
-  warnings.warn(
-/home/lagusa/Documentos/TI3/.venv/lib/python3.12/site-packages/pydantic/_internal/_generate_schema.py:2249: UnsupportedFieldAttributeWarning: The 'frozen' attribute with value True was provided to the `Field()` function, which has no effect in the context it was used. 'frozen' is field-specific metadata, and can only be attached to a model field using `Annotated` metadata or by assignment. This may have happened because an `Annotated` type alias using the `type` statement was used, or if the `Field()` function was attached to a single member of a union type.
-  warnings.warn(
-INFO:     Started server process [12062]
-INFO:     Waiting for application startup.
-/home/lagusa/Documentos/TI3/.venv/lib/python3.12/site-packages/torch/nn/modules/transformer.py:392: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
-  warnings.warn(
-INFO:evaluate:Model loaded from checkpoints/best_model.pt
-INFO:app:Model loaded successfully from checkpoints/best_model.pt
-INFO:sentence_transformers.SentenceTransformer:Use pytorch device_name: cuda:0
-INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     127.0.0.1:50422 - "GET /?id=fecb476b-403e-4f76-aff4-70847c7f195c&vscodeBrowserReqId=1763863839313 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:32970 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:34002 - "GET / HTTP/1.1" 200 OK
-INFO:absl:Using default tokenizer.
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 42.18it/s]
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 68.20it/s]
-INFO:     127.0.0.1:34002 - "POST /upload HTTP/1.1" 200 OK
-INFO:absl:Using default tokenizer.
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 57.39it/s]
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 58.63it/s]
-INFO:     127.0.0.1:34016 - "POST /upload HTTP/1.1" 200 OK
-INFO:     127.0.0.1:34386 - "GET / HTTP/1.1" 200 OK
-INFO:absl:Using default tokenizer.
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 88.25it/s]
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 104.20it/s]
-INFO:     127.0.0.1:34388 - "POST /upload HTTP/1.1" 200 OK
-INFO:     127.0.0.1:34388 - "GET / HTTP/1.1" 200 OK
-INFO:absl:Using default tokenizer.
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 174.20it/s]
-Batches:   0%|          | 0/1 [00:00<?, ?it/s]Batches: 100%|██████████| 1/1 [00:00<00:00, 203.10it/s]
-INFO:     127.0.0.1:34388 - "POST /upload HTTP/1.1" 200 OK
-INFO:     127.0.0.1:39764 - "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 Not Found

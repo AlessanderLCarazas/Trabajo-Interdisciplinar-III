@@ -1,0 +1,265 @@
+================================================================================
+                    📋 COMANDOS IMPORTANTES - MEMSUM
+================================================================================
+
+🚀 INICIO RÁPIDO
+================================================================================
+
+# 1. Crear entorno virtual
+python -m venv .venv
+
+# 2. Activar entorno (Linux/Mac)
+source .venv/bin/activate
+
+# 2. Activar entorno (Windows)
+.venv\Scripts\activate
+
+# 3. Instalar dependencias
+pip install -r requirements.txt
+
+# 4. Verificar que todo funcione
+python verificar_setup.py
+
+
+🏋️ ENTRENAR MODELO
+================================================================================
+
+# Entrenamiento corto (5 epochs) - PRUEBA RÁPIDA
+python train.py --config configs/booksum_config.yaml --epochs 5 --batch_size 2
+
+# Entrenamiento completo (40 epochs) - RECOMENDADO
+python train.py --config configs/booksum_config.yaml --epochs 40 --batch_size 2
+
+# Entrenamiento con GPU (más rápido)
+python train.py --config configs/booksum_config.yaml --epochs 40 --batch_size 4
+
+# Entrenamiento con menos memoria
+python train.py --config configs/booksum_config.yaml --epochs 40 --batch_size 1
+
+
+📊 EVALUAR MODELO
+================================================================================
+
+# Evaluar con el modelo entrenado
+python evaluate.py
+
+# Evaluar con modelo específico
+python evaluate.py --model_path checkpoints/best_model.pt
+
+# Evaluar y guardar resultados
+python evaluate.py --output results.json
+
+
+🌐 LEVANTAR INTERFAZ WEB
+================================================================================
+
+# Interfaz completa (RECOMENDADA) - PDF + BookSum + Métricas
+python app_advanced.py
+
+# Interfaz básica (solo PDF)
+python app.py
+
+# Acceder a la interfaz
+# Abrir navegador en: http://localhost:8000
+
+
+📄 RESUMIR PDFs DESDE TERMINAL
+================================================================================
+
+# Resumir un PDF
+python scripts/summarize_pdf.py --pdf_path "ruta/al/archivo.pdf" --output "resumen.txt"
+
+# Resumir un PDF con más oraciones
+python scripts/summarize_pdf.py --pdf_path "archivo.pdf" --output "resumen.txt" --max_sentences 10
+
+# Resumir un EPUB
+python scripts/summarize_epub.py --epub_path "libro.epub" --output "resumen.txt"
+
+
+🔧 CONFIGURAR Y AJUSTAR
+================================================================================
+
+# Editar configuración de entrenamiento
+nano configs/booksum_config.yaml
+
+# O usa tu editor favorito
+code configs/booksum_config.yaml
+vim configs/booksum_config.yaml
+
+
+📦 INSTALAR/ACTUALIZAR DEPENDENCIAS
+================================================================================
+
+# Instalar todas las dependencias
+pip install -r requirements.txt
+
+# Actualizar todas las dependencias
+pip install --upgrade -r requirements.txt
+
+# Instalar dependencia específica
+pip install torch
+pip install transformers
+pip install fastapi
+
+
+🐛 SOLUCIÓN DE PROBLEMAS
+================================================================================
+
+# Verificar versión de Python
+python --version
+
+# Verificar si PyTorch detecta GPU
+python -c "import torch; print('CUDA disponible:', torch.cuda.is_available())"
+
+# Descargar recursos de NLTK
+python -c "import nltk; nltk.download('punkt')"
+
+# Ver librerías instaladas
+pip list
+
+# Verificar setup completo
+python verificar_setup.py
+
+
+📊 COMANDOS ÚTILES DE DESARROLLO
+================================================================================
+
+# Ver tamaño del modelo entrenado
+ls -lh checkpoints/best_model.pt
+
+# Ver estructura del proyecto
+tree -L 2
+
+# O en sistemas sin tree:
+find . -maxdepth 2 -type f
+
+# Limpiar archivos de caché Python
+find . -type d -name "__pycache__" -exec rm -rf {} +
+
+# Ver logs de entrenamiento (si existen)
+tail -f training.log
+
+
+🔍 INSPECCIONAR MODELO
+================================================================================
+
+# Ver información del modelo
+python -c "
+import torch
+checkpoint = torch.load('checkpoints/best_model.pt', map_location='cpu')
+print('Epoch:', checkpoint.get('epoch', 'N/A'))
+print('Keys:', checkpoint.keys())
+"
+
+# Ver resumen de configuración
+python -c "
+import yaml
+with open('configs/booksum_config.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+    for k, v in config.items():
+        print(f'{k}: {v}')
+"
+
+
+📈 MONITOREO DURANTE ENTRENAMIENTO
+================================================================================
+
+# Ver uso de GPU en tiempo real (si tienes NVIDIA GPU)
+watch -n 1 nvidia-smi
+
+# Ver uso de CPU/RAM
+htop
+
+# O en sistemas sin htop
+top
+
+
+🚀 COMANDOS RÁPIDOS DE USO COMÚN
+================================================================================
+
+# 🔴 SOLO PARA USAR EL MODELO (sin entrenar)
+python app_advanced.py
+# → Abre http://localhost:8000 y usa la interfaz
+
+# 🟡 ENTRENAR RÁPIDO (5 minutos)
+python train.py --config configs/booksum_config.yaml --epochs 5 --batch_size 2
+
+# 🟢 ENTRENAR COMPLETO (varias horas)
+python train.py --config configs/booksum_config.yaml --epochs 40 --batch_size 2
+
+# 🔵 EVALUAR MODELO
+python evaluate.py
+
+# 🟣 RESUMIR UN PDF
+python scripts/summarize_pdf.py --pdf_path "documento.pdf" --output "resumen.txt"
+
+
+💡 ATAJOS Y TIPS
+================================================================================
+
+# Crear alias útiles (añade a tu ~/.bashrc o ~/.zshrc)
+alias memsum-train="python train.py --config configs/booksum_config.yaml"
+alias memsum-app="python app_advanced.py"
+alias memsum-eval="python evaluate.py"
+
+# Usar después de recargar shell
+memsum-app  # Levanta la interfaz
+memsum-train --epochs 5 --batch_size 2  # Entrena
+
+
+🆘 AYUDA Y DOCUMENTACIÓN
+================================================================================
+
+# Ver ayuda de train.py
+python train.py --help
+
+# Ver ayuda de evaluate.py
+python evaluate.py --help
+
+# Ver ayuda de scripts
+python scripts/summarize_pdf.py --help
+
+
+📋 CHECKLIST ANTES DE ENTRENAR
+================================================================================
+
+☑ Verificar instalación
+   python verificar_setup.py
+
+☑ Verificar GPU (opcional)
+   python -c "import torch; print(torch.cuda.is_available())"
+
+☑ Verificar espacio en disco
+   df -h
+
+☑ Verificar configuración
+   cat configs/booksum_config.yaml
+
+
+🎯 COMANDOS POR OBJETIVO
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ QUIERO...                        │ EJECUTAR...                          │
+├─────────────────────────────────┼──────────────────────────────────────┤
+│ Usar el modelo YA               │ python app_advanced.py               │
+│ Entrenar desde cero             │ python train.py --config ... -e 40   │
+│ Ver qué tan bueno es el modelo  │ python evaluate.py                   │
+│ Resumir un PDF                  │ python scripts/summarize_pdf.py ...  │
+│ Verificar instalación           │ python verificar_setup.py            │
+│ Cambiar configuración           │ nano configs/booksum_config.yaml     │
+└─────────────────────────────────┴──────────────────────────────────────┘
+
+
+================================================================================
+                    🎉 ¡COMANDOS LISTOS PARA USAR!
+================================================================================
+
+Copia y pega cualquiera de estos comandos directamente en tu terminal.
+
+Recuerda:
+- Activa el entorno virtual primero: source .venv/bin/activate
+- Para salir del entorno: deactivate
+- Para detener procesos: Ctrl+C
+
+================================================================================

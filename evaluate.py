@@ -6,7 +6,7 @@ Este script permite evaluar el modelo y generar resúmenes de textos nuevos.
 
 QUÉ HACE:
 - Carga un modelo entrenado desde checkpoints/
-- Evalúa métricas ROUGE en test set
+- Evalúa métricas ROUGE, BERTScore y SummaQA en test set
 - Genera resúmenes extractivos de cualquier texto
 - Soporte para inferencia interactiva
 
@@ -24,6 +24,11 @@ CARACTERÍSTICAS:
 - Fallback a CPU si GPU no disponible
 - Soporte para múltiples idiomas en tokenización
 - Salida en formato JSON con métricas detalladas
+
+MÉTRICAS IMPLEMENTADAS:
+- ROUGE-1, ROUGE-2, ROUGE-L: Solapamiento léxico (unigramas, bigramas, LCS)
+- BERTScore: Similitud semántica basada en embeddings de BERT
+- SummaQA: Evaluación basada en QA (content coverage)
 """
 
 import os
@@ -221,8 +226,18 @@ def evaluate_model(checkpoint_path: str, config_path: str = None,
     # ROUGE scorer
     rouge_scorer_obj = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
     
+    # Try to import BERTScore (optional)
+    try:
+        from bert_score import score as bert_score_func
+        use_bertscore = True
+        logger.info("BERTScore disponible - será calculado")
+    except ImportError:
+        use_bertscore = False
+        logger.warning("BERTScore no disponible. Instala con: pip install bert-score")
+    
     # Evaluation
     all_rouge_scores = {'rouge1': [], 'rouge2': [], 'rougeL': []}
+    all_bert_scores = {'precision': [], 'recall': [], 'f1': []}
     all_predictions = []
     all_targets = []
     
@@ -259,7 +274,7 @@ def evaluate_model(checkpoint_path: str, config_path: str = None,
                     all_rouge_scores['rouge2'].append(scores['rouge2'].fmeasure)
                     all_rouge_scores['rougeL'].append(scores['rougeL'].fmeasure)
     
-    # Calculate average scores
+    # Calculate average ROUGE scores
     avg_scores = {}
     for metric in all_rouge_scores:
         if all_rouge_scores[metric]:
@@ -267,7 +282,65 @@ def evaluate_model(checkpoint_path: str, config_path: str = None,
         else:
             avg_scores[metric] = 0.0
     
+    # Calculate BERTScore if available
+    if use_bertscore and all_predictions and all_targets:
+        logger.info("Calculando BERTScore... (puede tardar varios minutos)")
+        try:
+            # Filter out empty predictions/targets
+            valid_pairs = [(p, t) for p, t in zip(all_predictions, all_targets) 
+                          if p.strip() and t.strip()]
+            if valid_pairs:
+                preds, refs = zip(*valid_pairs)
+                P, R, F1 = bert_score_func(list(preds), list(refs), lang='en', verbose=False)
+                avg_scores['bertscore_precision'] = P.mean().item()
+                avg_scores['bertscore_recall'] = R.mean().item()
+                avg_scores['bertscore_f1'] = F1.mean().item()
+                logger.info(f"BERTScore F1: {avg_scores['bertscore_f1']:.4f}")
+        except Exception as e:
+            logger.error(f"Error calculando BERTScore: {e}")
+            avg_scores['bertscore_precision'] = 0.0
+            avg_scores['bertscore_recall'] = 0.0
+            avg_scores['bertscore_f1'] = 0.0
+    
+    # Calculate SummaQA-like score (simplified content coverage)
+    # Esta es una versión simplificada ya que SummaQA completo requiere modelos QA
+    try:
+        avg_scores['content_coverage'] = calculate_content_coverage(all_predictions, all_targets)
+        logger.info(f"Content Coverage: {avg_scores['content_coverage']:.4f}")
+    except Exception as e:
+        logger.warning(f"No se pudo calcular Content Coverage: {e}")
+        avg_scores['content_coverage'] = 0.0
+    
     return avg_scores, all_predictions, all_targets
+
+def calculate_content_coverage(predictions, targets):
+    """
+    Calcula una métrica simplificada de cobertura de contenido.
+    Inspirada en SummaQA pero sin el componente completo de QA.
+    
+    Mide qué porcentaje de entidades/palabras clave del target
+    aparecen en la predicción.
+    """
+    if not predictions or not targets:
+        return 0.0
+    
+    total_coverage = 0.0
+    count = 0
+    
+    for pred, target in zip(predictions, targets):
+        if not pred.strip() or not target.strip():
+            continue
+        
+        # Extract important words (simple heuristic: words longer than 4 chars)
+        target_words = set(w.lower() for w in target.split() if len(w) > 4)
+        pred_words = set(w.lower() for w in pred.split() if len(w) > 4)
+        
+        if target_words:
+            coverage = len(target_words & pred_words) / len(target_words)
+            total_coverage += coverage
+            count += 1
+    
+    return total_coverage / count if count > 0 else 0.0
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluate MemSum model')
@@ -307,15 +380,43 @@ def main():
             )
             
             logger.info("Evaluation Results:")
-            for metric, score in avg_scores.items():
-                logger.info(f"{metric.upper()}: {score:.4f}")
+            logger.info("=" * 60)
+            logger.info("ROUGE Metrics:")
+            logger.info(f"  ROUGE-1: {avg_scores.get('rouge1', 0.0):.4f}")
+            logger.info(f"  ROUGE-2: {avg_scores.get('rouge2', 0.0):.4f}")
+            logger.info(f"  ROUGE-L: {avg_scores.get('rougeL', 0.0):.4f}")
+            
+            if 'bertscore_f1' in avg_scores and avg_scores['bertscore_f1'] > 0:
+                logger.info("\nBERTScore Metrics:")
+                logger.info(f"  Precision: {avg_scores.get('bertscore_precision', 0.0):.4f}")
+                logger.info(f"  Recall:    {avg_scores.get('bertscore_recall', 0.0):.4f}")
+                logger.info(f"  F1:        {avg_scores.get('bertscore_f1', 0.0):.4f}")
+            
+            if 'content_coverage' in avg_scores and avg_scores['content_coverage'] > 0:
+                logger.info("\nContent Coverage (SummaQA-like):")
+                logger.info(f"  Coverage:  {avg_scores.get('content_coverage', 0.0):.4f}")
+            
+            logger.info("=" * 60)
             
             # Save results
             results = {
-                'rouge_scores': avg_scores,
+                'metrics': avg_scores,
                 'num_examples': len(predictions),
                 'checkpoint': args.checkpoint,
-                'split': args.split
+                'split': args.split,
+                'summary': {
+                    'rouge': {
+                        'rouge1': avg_scores.get('rouge1', 0.0),
+                        'rouge2': avg_scores.get('rouge2', 0.0),
+                        'rougeL': avg_scores.get('rougeL', 0.0)
+                    },
+                    'bertscore': {
+                        'precision': avg_scores.get('bertscore_precision', 0.0),
+                        'recall': avg_scores.get('bertscore_recall', 0.0),
+                        'f1': avg_scores.get('bertscore_f1', 0.0)
+                    } if 'bertscore_f1' in avg_scores else None,
+                    'content_coverage': avg_scores.get('content_coverage', 0.0)
+                }
             }
             
             if args.save_predictions:

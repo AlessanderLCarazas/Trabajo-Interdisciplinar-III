@@ -678,93 +678,63 @@ async def get_web_interface():
                 // Display summary
                 summaryText.textContent = result.summary;
                 
-                // Display metrics if available
-                if (result.rouge_metrics) {
-                    const metrics = result.rouge_metrics;
-                    const metricsHTML = `
-                        <div style="margin-top: 20px; padding: 20px; background: #2a2a2a; border-radius: 10px; border: 1px solid #444;">
-                            <h3 style="color: #00bcd4; margin-bottom: 15px;">📊 Métricas de Evaluación (ROUGE)</h3>
-                            
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
-                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
-                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">ROUGE-1</div>
-                                    <div style="font-size: 1.8em; color: #00bcd4; font-weight: bold;">${(metrics.rouge1.f1 * 100).toFixed(2)}%</div>
-                                    <div style="font-size: 0.85em; color: #aaa; margin-top: 5px;">
-                                        P: ${(metrics.rouge1.precision * 100).toFixed(1)}% | 
-                                        R: ${(metrics.rouge1.recall * 100).toFixed(1)}%
-                                    </div>
-                                </div>
-                                
-                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
-                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">ROUGE-2</div>
-                                    <div style="font-size: 1.8em; color: #4caf50; font-weight: bold;">${(metrics.rouge2.f1 * 100).toFixed(2)}%</div>
-                                    <div style="font-size: 0.85em; color: #aaa; margin-top: 5px;">
-                                        P: ${(metrics.rouge2.precision * 100).toFixed(1)}% | 
-                                        R: ${(metrics.rouge2.recall * 100).toFixed(1)}%
-                                    </div>
-                                </div>
-                                
-                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
-                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">ROUGE-L</div>
-                                    <div style="font-size: 1.8em; color: #ff9800; font-weight: bold;">${(metrics.rougeL.f1 * 100).toFixed(2)}%</div>
-                                    <div style="font-size: 0.85em; color: #aaa; margin-top: 5px;">
-                                        P: ${(metrics.rougeL.precision * 100).toFixed(1)}% | 
-                                        R: ${(metrics.rougeL.recall * 100).toFixed(1)}%
-                                    </div>
-                                </div>
+                // Display metrics (Coherence, Cohesion, Compression)
+                const metricsHTML = `
+                    <div style="margin-top: 20px; padding: 20px; background: #2a2a2a; border-radius: 10px; border: 1px solid #444;">
+                        <h3 style="color: #00bcd4; margin-bottom: 15px;">📊 Métricas de Calidad</h3>
+                        
+                        <div style="display: flex; justify-content: space-between; padding: 15px; background: #1a1a1a; border-radius: 8px; margin-bottom: 15px;">
+                            <div>
+                                <span style="color: #888;">Texto original:</span>
+                                <span style="color: #fff; margin-left: 10px; font-weight: bold;">${result.text_length.toLocaleString()} caracteres</span>
                             </div>
-                            
-                            <div style="display: flex; justify-content: space-between; padding: 15px; background: #1a1a1a; border-radius: 8px;">
-                                <div>
-                                    <span style="color: #888;">Texto original:</span>
-                                    <span style="color: #fff; margin-left: 10px; font-weight: bold;">${result.text_length.toLocaleString()} caracteres</span>
-                                </div>
-                                <div>
-                                    <span style="color: #888;">Resumen:</span>
-                                    <span style="color: #fff; margin-left: 10px; font-weight: bold;">${result.summary_length.toLocaleString()} caracteres</span>
-                                </div>
-                                <div>
-                                    <span style="color: #888;">Compresión:</span>
-                                    <span style="color: #00bcd4; margin-left: 10px; font-weight: bold;">${result.compression_ratio}%</span>
-                                </div>
+                            <div>
+                                <span style="color: #888;">Resumen:</span>
+                                <span style="color: #fff; margin-left: 10px; font-weight: bold;">${result.summary_length.toLocaleString()} caracteres</span>
                             </div>
-                            
-                            ${result.coherence !== undefined && result.cohesion !== undefined ? `
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
-                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
-                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">🔗 Coherencia</div>
-                                    <div style="font-size: 1.8em; color: #9c27b0; font-weight: bold;">${(result.coherence * 100).toFixed(2)}%</div>
-                                    <div style="font-size: 0.75em; color: #aaa; margin-top: 5px;">
-                                        Similitud entre oraciones consecutivas
-                                    </div>
-                                </div>
-                                
-                                <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
-                                    <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">🎯 Cohesión</div>
-                                    <div style="font-size: 1.8em; color: #e91e63; font-weight: bold;">${(result.cohesion * 100).toFixed(2)}%</div>
-                                    <div style="font-size: 0.75em; color: #aaa; margin-top: 5px;">
-                                        Unidad temática del resumen
-                                    </div>
-                                </div>
-                            </div>
-                            ` : ''}
-                            
-                            <div style="margin-top: 10px; padding: 10px; background: #1a1a1a; border-radius: 5px; font-size: 0.85em; color: #aaa;">
-                                <strong>📖 Interpretación de Métricas:</strong>
-                                <ul style="margin: 5px 0; padding-left: 20px;">
-                                    <li><strong>ROUGE-1:</strong> Similitud de palabras individuales</li>
-                                    <li><strong>ROUGE-2:</strong> Similitud de pares de palabras (bigrams)</li>
-                                    <li><strong>ROUGE-L:</strong> Secuencia común más larga</li>
-                                    ${result.coherence !== undefined ? '<li><strong>Coherencia:</strong> Conexión lógica entre oraciones (>70% = buena)</li>' : ''}
-                                    ${result.cohesion !== undefined ? '<li><strong>Cohesión:</strong> Unidad temática del resumen (>75% = buena)</li>' : ''}
-                                </ul>
+                            <div>
+                                <span style="color: #888;">Compresión:</span>
+                                <span style="color: #00bcd4; margin-left: 10px; font-weight: bold;">${result.compression_ratio}%</span>
                             </div>
                         </div>
-                    `;
-                    
-                    // Insert metrics after summary text
-                    summaryText.insertAdjacentHTML('afterend', metricsHTML);
-                }
+                        
+                        ${result.coherence !== undefined && result.cohesion !== undefined ? `
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
+                                <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">🔗 Coherencia</div>
+                                <div style="font-size: 1.8em; color: #9c27b0; font-weight: bold;">${(result.coherence * 100).toFixed(2)}%</div>
+                                <div style="font-size: 0.75em; color: #aaa; margin-top: 5px;">
+                                    Similitud entre oraciones consecutivas
+                                </div>
+                            </div>
+                            
+                            <div style="background: #1a1a1a; padding: 15px; border-radius: 8px;">
+                                <div style="color: #888; font-size: 0.9em; margin-bottom: 5px;">🎯 Cohesión</div>
+                                <div style="font-size: 1.8em; color: #e91e63; font-weight: bold;">${(result.cohesion * 100).toFixed(2)}%</div>
+                                <div style="font-size: 0.75em; color: #aaa; margin-top: 5px;">
+                                    Unidad temática del resumen
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div style="margin-top: 15px; padding: 10px; background: #1a1a1a; border-radius: 5px; font-size: 0.85em; color: #aaa;">
+                            <strong>📖 Interpretación de Métricas:</strong>
+                            <ul style="margin: 5px 0; padding-left: 20px;">
+                                <li><strong>Compresión:</strong> Porcentaje del texto original que quedó en el resumen</li>
+                                ${result.coherence !== undefined ? '<li><strong>Coherencia:</strong> Conexión lógica entre oraciones (>70% = buena)</li>' : ''}
+                                ${result.cohesion !== undefined ? '<li><strong>Cohesión:</strong> Unidad temática del resumen (>75% = buena)</li>' : ''}
+                            </ul>
+                            <div style="margin-top: 10px; padding: 8px; background: #2a2a2a; border-radius: 4px; border-left: 3px solid #00bcd4;">
+                                <strong>ℹ️ Nota sobre ROUGE:</strong> Las métricas ROUGE (comparación con resumen humano) solo están disponibles 
+                                en <code style="background: #1a1a1a; padding: 2px 6px; border-radius: 3px;">evaluate.py</code> cuando se evalúa con el dataset BookSum.
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // Insert metrics after summary text
+                summaryText.insertAdjacentHTML('afterend', metricsHTML);
                 
                 emptyState.style.display = 'none';
                 results.style.display = 'block';
@@ -857,28 +827,9 @@ async def upload_and_summarize(
                 dedup=True
             )
             
-            # Calculate ROUGE metrics (compare summary with original text)
-            scorer = rouge_scorer.RougeScorer(['rouge1', 'rouge2', 'rougeL'], use_stemmer=True)
-            rouge_scores = scorer.score(text, summary)
-            
-            # Extract F1 scores
-            metrics = {
-                "rouge1": {
-                    "precision": round(rouge_scores['rouge1'].precision, 4),
-                    "recall": round(rouge_scores['rouge1'].recall, 4),
-                    "f1": round(rouge_scores['rouge1'].fmeasure, 4)
-                },
-                "rouge2": {
-                    "precision": round(rouge_scores['rouge2'].precision, 4),
-                    "recall": round(rouge_scores['rouge2'].recall, 4),
-                    "f1": round(rouge_scores['rouge2'].fmeasure, 4)
-                },
-                "rougeL": {
-                    "precision": round(rouge_scores['rougeL'].precision, 4),
-                    "recall": round(rouge_scores['rougeL'].recall, 4),
-                    "f1": round(rouge_scores['rougeL'].fmeasure, 4)
-                }
-            }
+            # NOTA: ROUGE se ELIMINÓ de aquí porque requiere resumen humano de referencia
+            # La interfaz web procesa PDFs arbitrarios sin resúmenes de referencia
+            # ROUGE solo está disponible en evaluate.py cuando se usa dataset BookSum
             
             # Calculate coherence and cohesion
             coherence = round(calculate_coherence(summary), 4)
@@ -895,7 +846,6 @@ async def upload_and_summarize(
                 "text_length": len(text),
                 "summary_length": len(summary),
                 "compression_ratio": compression_ratio,
-                "rouge_metrics": metrics,
                 "coherence": coherence,
                 "cohesion": cohesion,
                 "status": "success"
